@@ -124,142 +124,145 @@ function lineitemtweaks_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 }
 
 /**
- * Implement hook_civicrm_pre().
+ * Implements hook_civicrm_pre().
  */
 function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
-    switch($objectName) {
-        case 'LineItem':
-            static $created = array();
+  switch ($objectName) {
+    case 'LineItem':
+      static $created = array();
 
-            if(!empty($params['contribution_id'])) {
-                $contribution = civicrm_api3('Contribution', 'getsingle', array('id' => $params['contribution_id']));
+      if (!empty($params['contribution_id'])) {
+        $contribution = civicrm_api3('Contribution', 'getsingle', array('id' => $params['contribution_id']));
+      }
+
+      if (
+        ('create' == $op || ('edit' == $op && !empty($created[$params['entity_id']]))) &&
+        ('civicrm_membership' == $params['entity_table'])
+      ) {
+        $created[$params['entity_id']] = TRUE;
+        if (!empty($contribution)) {
+          _lineitemtweaks_fix_membership_lineitem($contribution, $params);
+        }
+      }
+      elseif (($params['entity_id'] == $params['contribution_id']) && ($params['entity_table'] == 'civicrm_contribution')) {
+        if ('create' == $op) {
+          // Since contributions are double processed due to custom values,
+          // First mark this line item as one that's being created.
+          $created[$params['entity_id']] = TRUE;
+
+          if (!empty($contribution['contribution_source'])) {
+            $params['label'] = $contribution['contribution_source'];
+          }
+          elseif (!empty($params['financial_type_id'])) {
+            try {
+              $params['label'] = civicrm_api3('FinancialType', 'getvalue', array('return' => 'name', 'id' => $params['financial_type_id']));
             }
-
-            if(
-                ('create' == $op || ('edit' == $op && !empty($created[$params['entity_id']]))) &&
-                ('civicrm_membership' == $params['entity_table'])
-            ) {
-                $created[$params['entity_id']] = true;
-                if(!empty($contribution)) {
-                    _lineitemtweaks_fix_membership_lineitem($contribution, $params);
-                }
+            catch(CiviCRM_API3_Exception $e) {
             }
-            elseif(($params['entity_id'] == $params['contribution_id']) && ($params['entity_table'] == 'civicrm_contribution')) {
-                if('create' == $op) {
-                    // Since contributions are double processed due to custom values,
-                    // First mark this line item as one that's being created.
-                    $created[$params['entity_id']] = true;
+          }
+        }
+      }
+      elseif (('create' == $op || 'edit' == $op) && ('civicrm_participant' == $params['entity_table'])) {
+        $entity = civicrm_api3('Participant', 'getsingle', array(
+            'id' => $params['entity_id'],
+        ));
 
-                    if(!empty($contribution['contribution_source'])) {
-                        $params['label'] = $contribution['contribution_source'];
-                    }
-                    elseif(!empty($params['financial_type_id'])) {
-                        try {
-                            $params['label'] = civicrm_api3('FinancialType', 'getvalue', array('return' => 'name', 'id' => $params['financial_type_id']));
-                        }
-                        catch(CiviCRM_API3_Exception $e) {
-                        }
-                    }
-                }
-            } elseif(('create' == $op || 'edit' == $op) && ('civicrm_participant' == $params['entity_table']  )) {
-                $entity = civicrm_api3('Participant', 'getsingle', array(
-                    'id' => $params['entity_id'],
-                ));
+        $description = $entity['event_title'];
 
-                $description = $entity['event_title'];
+        if (!empty($entity['event_type'])) {
+          $description .= ' (' . $entity['event_type'] . ') ';
+        }
+        if (!empty($entity['event_start_date'])) {
+          $description .= ' on ' . strftime('%e/%m/%Y', strtotime($entity['event_start_date']));
+        }
 
-                if(!empty($entity['event_type'])) {
-                    $description .= ' (' . $entity['event_type'] . ') ';
-                }
-                if(!empty($entity['event_start_date'])) {
-                    $description .= ' on ' . strftime('%e/%m/%Y', strtotime($entity['event_start_date']));
-                }
+        $params['label'] = $description;
+      }
+      break;
 
-                $params['label'] = $description;
-            }
-            break;
-        default:
-            break;
-    }
+    default:
+      break;
+  }
 }
 
 function __lineitemtweaks_new_membership($id, $add = FALSE) {
-    static $new_membership = array();
-    if ($add == TRUE) {
-        $new_membership[$id] = TRUE;
-    }
-
-    return !empty($new_membership[$id]);
+  static $new_membership = array();
+  if ($add == TRUE) {
+    $new_membership[$id] = TRUE;
+  }
+  return !empty($new_membership[$id]);
 }
 
 /**
  * Implements hook_civicrm_post().
  */
 function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
-    switch($objectName) {
-        case 'Contribution':
-            CRM_Core_Error::debug_log_message("Contribution Post $op -> {$objectRef->id}");
-            if('create' == $op) {
-                $line_items = civicrm_api3('LineItem', 'get', array(
-                    'contribution_id' => $objectRef->id,
-                    'entity_table' => array('IN' => array('civicrm_contribution', 'civicrm_membership')),
-                    'return' => 'id,contribution_id,entity_table,entity_id,qty',
-                ));
+  switch ($objectName) {
+    case 'Contribution':
+      CRM_Core_Error::debug_log_message("Contribution Post $op -> {$objectRef->id}");
+      if ('create' == $op) {
+        $line_items = civicrm_api3('LineItem', 'get', array(
+          'contribution_id' => $objectRef->id,
+          'entity_table' => array('IN' => array('civicrm_contribution', 'civicrm_membership')),
+          'return' => 'id,contribution_id,entity_table,entity_id,qty',
+        ));
 
-                $contribution = array(
-                    'id' => $objectId,
-                    'contribution_status_id' => $objectRef->contribution_status_id,
-                );
+        $contribution = array(
+          'id' => $objectId,
+          'contribution_status_id' => $objectRef->contribution_status_id,
+        );
 
-                foreach($line_items['values'] as &$item) {
-                    if($item['entity_table'] == 'civicrm_membership') {
-                        _lineitemtweaks_fix_membership_lineitem($contribution, $item);
-                    }
-                    civicrm_api3('LineItem', 'create', $item);
-                }
+        foreach ($line_items['values'] as &$item) {
+          if ($item['entity_table'] == 'civicrm_membership') {
+            _lineitemtweaks_fix_membership_lineitem($contribution, $item);
+          }
+          civicrm_api3('LineItem', 'create', $item);
+        }
 
-                CRM_Core_Error::debug_var('line_items.values', $line_items['values']);
-            }
-            break;
-        case 'Membership':
-            if('create' == $op) {
-                __lineitemtweaks_new_membership($objectId, TRUE);
-            }
-            break;
-        default:
-            break;
-    }
+        CRM_Core_Error::debug_var('line_items.values', $line_items['values']);
+      }
+      break;
+
+    case 'Membership':
+      if ('create' == $op) {
+        __lineitemtweaks_new_membership($objectId, TRUE);
+      }
+      break;
+
+    default:
+      break;
+  }
 }
 
 function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
-    $membership = civicrm_api3('Membership', 'getsingle', array('id' => $params['entity_id']));
+  $membership = civicrm_api3('Membership', 'getsingle', array('id' => $params['entity_id']));
 
-    $membership_type = civicrm_api3('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
+  $membership_type = civicrm_api3('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
 
-    $org_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership_type['member_of_contact_id'], 'return' => 'display_name'));
-    $type = $membership_type['name'];
-    $membershipToUse = $membership;
+  $org_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership_type['member_of_contact_id'], 'return' => 'display_name'));
+  $type = $membership_type['name'];
+  $membershipToUse = $membership;
 
-    if($membership_type['duration_unit'] != 'lifetime') {
-        // Normal memberships (Not lifetime)
-        if(!__lineitemtweaks_new_membership($membership["id"])) {
-          $lastMembershipLog = civicrm_api3('MembershipLog', 'get', array(
-            'sequential' => 1,
-            'membership_id' => $membership["id"],
-            'options' => array('limit' => 1, 'sort' => "id DESC"),
-          ));
-          if ($lastMembershipLog["count"]) {
-            $lastMembershipLog = $lastMembershipLog["values"][0];
-              $membershipToUse = $lastMembershipLog;
-          }
-        }
-
-        $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-        $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
-        $params['label'] = "{$type} Membership Subscription to {$org_name} for the period {$from} to {$to} (#{$membership['id']})";
+  if ($membership_type['duration_unit'] != 'lifetime') {
+    // Normal memberships (Not lifetime)
+    if (!__lineitemtweaks_new_membership($membership["id"])) {
+      $lastMembershipLog = civicrm_api3('MembershipLog', 'get', array(
+        'sequential' => 1,
+        'membership_id' => $membership["id"],
+        'options' => array('limit' => 1, 'sort' => "id DESC"),
+      ));
+      if ($lastMembershipLog["count"]) {
+        $lastMembershipLog = $lastMembershipLog["values"][0];
+        $membershipToUse = $lastMembershipLog;
+      }
     }
-    else {
-        $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-        $params['label'] = "{$type} Membership Subscription to {$org_name} for the period {$from} onward (#{$membership['id']})";
-    }
+
+    $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
+    $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
+    $params['label'] = "{$type} Membership Subscription to {$org_name} for the period {$from} to {$to} (#{$membership['id']})";
+  }
+  else {
+    $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
+    $params['label'] = "{$type} Membership Subscription to {$org_name} for the period {$from} onward (#{$membership['id']})";
+  }
 }
