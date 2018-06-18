@@ -260,10 +260,10 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
 
     $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
     $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
-    $params['label'] = "{$type} Membership Subscription to {$org_name} for the period {$from} to {$to} (#{$membership['id']})";
+    $params['label'] = E::ts('Membership Id %1: %2 from %3 to %4', array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => $to));
   }
   else {
     $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-    $params['label'] = "{$type} Membership Subscription to {$org_name} for the period {$from} onward (#{$membership['id']})";
+    $params['label'] = E::ts('Membership Id %1: %2 from %3 onward', array(1 => $membership['id'], 2 => $type, 3 => $from));
   }
 }
