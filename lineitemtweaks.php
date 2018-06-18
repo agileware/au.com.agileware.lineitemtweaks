@@ -125,6 +125,8 @@ function lineitemtweaks_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 
 /**
  * Implements hook_civicrm_pre().
+ *
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_pre
  */
 function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
   switch ($objectName) {
@@ -195,11 +197,12 @@ function __lineitemtweaks_new_membership($id, $add = FALSE) {
 
 /**
  * Implements hook_civicrm_post().
+ *
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_post
  */
 function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
   switch ($objectName) {
     case 'Contribution':
-      CRM_Core_Error::debug_log_message("Contribution Post $op -> {$objectRef->id}");
       if ('create' == $op) {
         $line_items = civicrm_api3('LineItem', 'get', array(
           'contribution_id' => $objectRef->id,
@@ -218,8 +221,6 @@ function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
           }
           civicrm_api3('LineItem', 'create', $item);
         }
-
-        CRM_Core_Error::debug_var('line_items.values', $line_items['values']);
       }
       break;
 
