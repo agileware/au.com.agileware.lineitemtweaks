@@ -240,6 +240,8 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
 
   $membership_type = civicrm_api3('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
 
+  $member_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership['contact_id'], 'return' => 'display_name'));
+
   $org_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership_type['member_of_contact_id'], 'return' => 'display_name'));
   $type = $membership_type['name'];
   $membershipToUse = $membership;
@@ -260,10 +262,13 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
 
     $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
     $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
-    $params['label'] = E::ts('Membership Id %1: %2 from %3 to %4', array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => $to));
+
+    $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label'));
+    $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => $to, 5 => $org_name, 6 => $member_name));
   }
   else {
     $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-    $params['label'] = E::ts('Membership Id %1: %2 from %3 onward', array(1 => $membership['id'], 2 => $type, 3 => $from));
+    $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label_lifetime'));
+    $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => '', 5 => $org_name, 6 => $member_name));
   }
 }
