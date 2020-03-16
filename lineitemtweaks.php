@@ -216,7 +216,7 @@ function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
         );
 
         foreach ($line_items['values'] as &$item) {
-          if ($item['entity_table'] == 'civicrm_membership') {
+          if (($item['entity_table'] == 'civicrm_membership') && !empty($item['entity_id'])) {
             _lineitemtweaks_fix_membership_lineitem($contribution, $item);
           }
           civicrm_api3('LineItem', 'create', $item);
@@ -236,39 +236,44 @@ function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 }
 
 function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
-  $membership = civicrm_api3('Membership', 'getsingle', array('id' => $params['entity_id']));
+  try {
+    $membership = civicrm_api3('Membership', 'getsingle', array('id' => $params['entity_id']));
 
-  $membership_type = civicrm_api3('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
+    $membership_type = civicrm_api3('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
 
-  $member_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership['contact_id'], 'return' => 'display_name'));
+    $member_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership['contact_id'], 'return' => 'display_name'));
 
-  $org_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership_type['member_of_contact_id'], 'return' => 'display_name'));
-  $type = $membership_type['name'];
-  $membershipToUse = $membership;
+    $org_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership_type['member_of_contact_id'], 'return' => 'display_name'));
+    $type = $membership_type['name'];
+    $membershipToUse = $membership;
 
-  if ($membership_type['duration_unit'] != 'lifetime') {
-    // Normal memberships (Not lifetime)
-    if (!__lineitemtweaks_new_membership($membership["id"])) {
-      $lastMembershipLog = civicrm_api3('MembershipLog', 'get', array(
-        'sequential' => 1,
-        'membership_id' => $membership["id"],
-        'options' => array('limit' => 1, 'sort' => "id DESC"),
-      ));
-      if ($lastMembershipLog["count"]) {
-        $lastMembershipLog = $lastMembershipLog["values"][0];
-        $membershipToUse = $lastMembershipLog;
+    if ($membership_type['duration_unit'] != 'lifetime') {
+      // Normal memberships (Not lifetime)
+      if (!__lineitemtweaks_new_membership($membership["id"])) {
+        $lastMembershipLog = civicrm_api3('MembershipLog', 'get', array(
+          'sequential' => 1,
+          'membership_id' => $membership["id"],
+          'options' => array('limit' => 1, 'sort' => "id DESC"),
+        ));
+        if ($lastMembershipLog["count"]) {
+          $lastMembershipLog = $lastMembershipLog["values"][0];
+          $membershipToUse = $lastMembershipLog;
+        }
       }
+
+      $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
+      $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
+
+      $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label'));
+      $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => $to, 5 => $org_name, 6 => $member_name));
     }
-
-    $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-    $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
-
-    $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label'));
-    $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => $to, 5 => $org_name, 6 => $member_name));
-  }
-  else {
-    $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-    $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label_lifetime'));
-    $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => '', 5 => $org_name, 6 => $member_name));
+    else {
+      $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
+      $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label_lifetime'));
+      $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => '', 5 => $org_name, 6 => $member_name));
+    }
+  } catch (CiviCRM_API3_Exception $e) {
+    CRM_Core_Error::debug_log_message('Could not find membership with id "' . $params['entity_id'] . '"');
+    CRM_Core_Error::backtrace(__FUNCTION__, true);
   }
 }
