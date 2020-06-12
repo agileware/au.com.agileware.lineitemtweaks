@@ -152,15 +152,13 @@ function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
           // First mark this line item as one that's being created.
           $created[$params['entity_id']] = TRUE;
 
-          if (!empty($contribution['contribution_source'])) {
-            $params['label'] = $contribution['contribution_source'];
+          try {
+            $financial_type_name = civicrm_api3('FinancialType', 'getvalue', array('return' => 'name', 'id' => $params['financial_type_id']));
+            if((empty($params['label']) || ($params['label'] == $financial_type_name)) && !empty($contribution['contribution_source'])) {
+              $params['label'] = $contribution['contribution_source'];
+            }
           }
-          elseif (!empty($params['financial_type_id'])) {
-            try {
-              $params['label'] = civicrm_api3('FinancialType', 'getvalue', array('return' => 'name', 'id' => $params['financial_type_id']));
-            }
-            catch(CiviCRM_API3_Exception $e) {
-            }
+          catch(CiviCRM_API3_Exception $e) {
           }
         }
       }
