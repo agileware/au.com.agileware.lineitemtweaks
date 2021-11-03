@@ -248,18 +248,42 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
     if ($membership_type['duration_unit'] != 'lifetime') {
       // Normal memberships (Not lifetime)
       if (!__lineitemtweaks_new_membership($membership["id"])) {
-        $lastMembershipLog = civicrm_api3('MembershipLog', 'get', array(
-          'sequential' => 1,
-          'membership_id' => $membership["id"],
-          'options' => array('limit' => 1, 'sort' => "id DESC"),
-        ));
-        if ($lastMembershipLog["count"]) {
-          $lastMembershipLog = $lastMembershipLog["values"][0];
-          $membershipToUse = $lastMembershipLog;
+        $status = FALSE;
+
+        if (!empty($contribution['id'])) {
+          $status = Civi\Api4\Contribution::get(FALSE)
+            ->addSelect('contribution_status_id:name')
+            ->addWhere('id', '=', $contribution['id'])
+            ->execute()
+            ->first();
+          $status = $status['contribution_status_id:name'];
+        }
+
+        if ($status == 'Pending') {
+          // Derive new membership dates according to the end date and number of terms
+          $membershipToUse = CRM_Member_BAO_MembershipType::getRenewalDatesForMembershipType(
+            $membership['id'],
+            NULL,
+            NULL,
+            $params['qty'] ?? 1
+          );
+        }
+        else {
+          // Get new membership dates from the log, which should be written out already.
+          $lastMembershipLog = civicrm_api3('MembershipLog', 'get', [
+            'sequential' => 1,
+            'membership_id' => $membership["id"],
+            'options' => ['limit' => 1, 'sort' => "id DESC"],
+          ]);
+          if ($lastMembershipLog["count"]) {
+            $lastMembershipLog = $lastMembershipLog["values"][0];
+            $membershipToUse = $lastMembershipLog;
+
+          }
         }
       }
 
-      $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
+      $from = strftime('%m/%Y', strtotime($membershipToUse['log_start_date'] ?? $membershipToUse['start_date']));
       $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
 
       $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label'));
