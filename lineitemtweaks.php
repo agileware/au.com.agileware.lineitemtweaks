@@ -131,41 +131,62 @@ function lineitemtweaks_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
   switch ($objectName) {
     case 'LineItem':
-      static $created = array();
 
-      if (!empty($params['contribution_id'])) {
-        $contribution = civicrm_api3('Contribution', 'getsingle', array('id' => $params['contribution_id']));
+      // Exit early if a delete operation
+      if ('delete' == $op) {
+        return;
       }
 
-      if (
-        ('create' == $op || ('edit' == $op && !empty($created[$params['entity_id']]))) &&
-        ('civicrm_membership' == $params['entity_table'])
-      ) {
-        $created[$params['entity_id']] = TRUE;
+      // Fetch the contribution if available, required for other processes
+      if (!empty($params['contribution_id'])) {
+        $contribution = civicrm_api3('Contribution', 'getsingle', ['id' => $params['contribution_id']]);
+      }
+
+      // The membership_id may be stored in two possible variables depending on how the membership was created
+      if ($params['entity_table'] == 'civicrm_membership') {
+        // Usually set for back-end memberships
+        $membership_id = $params['entity_id'] ?? NULL;
+      }
+      else {
+        // Usually set by Web Form
+        $membership_id = $params['membership_id'] ?? NULL;
+      }
+
+
+      // If the line items are being created or line items have been previously created and the membership id is set then...
+      if ('create' == $op || ('edit' == $op ) && !empty($membership_id)) {
+        // This will catch when Webform creates the Line Items before creating the Contribution
+        // And for back-end memberships, the Contribution will be created before the Line Items which makes more sense
         if (!empty($contribution)) {
+
+          // Webform may not set these variables, so do it now as this is used by _lineitemtweaks_fix_membership_lineitem
+          if (empty($params['entity_table'])) {
+            $params['entity_table'] = 'civicrm_membership';
+            $params['entity_id']    = $params['membership_id'];
+          }
+
           _lineitemtweaks_fix_membership_lineitem($contribution, $params);
         }
       }
       elseif (($params['entity_id'] == $params['contribution_id']) && ($params['entity_table'] == 'civicrm_contribution')) {
         if ('create' == $op) {
-          // Since contributions are double processed due to custom values,
-          // First mark this line item as one that's being created.
-          $created[$params['entity_id']] = TRUE;
-
           try {
-            $financial_type_name = civicrm_api3('FinancialType', 'getvalue', array('return' => 'name', 'id' => $params['financial_type_id']));
-            if((empty($params['label']) || ($params['label'] == $financial_type_name)) && !empty($contribution['contribution_source'])) {
+            $financial_type_name = civicrm_api3('FinancialType', 'getvalue', [
+              'return' => 'name',
+              'id'     => $params['financial_type_id'],
+            ]);
+            if ((empty($params['label']) || ($params['label'] == $financial_type_name)) && !empty($contribution['contribution_source'])) {
               $params['label'] = $contribution['contribution_source'];
             }
           }
-          catch(CiviCRM_API3_Exception $e) {
+          catch (CiviCRM_API3_Exception $e) {
           }
         }
       }
       elseif (('create' == $op || 'edit' == $op) && ('civicrm_participant' == $params['entity_table'])) {
-        $entity = civicrm_api3('Participant', 'getsingle', array(
-            'id' => $params['entity_id'],
-        ));
+        $entity = civicrm_api3('Participant', 'getsingle', [
+          'id' => $params['entity_id'],
+        ]);
 
         $description = $entity['event_title'];
 
@@ -252,10 +273,10 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
 
         if (!empty($contribution['id'])) {
           $status = Civi\Api4\Contribution::get(FALSE)
-            ->addSelect('contribution_status_id:name')
-            ->addWhere('id', '=', $contribution['id'])
-            ->execute()
-            ->first();
+                                          ->addSelect('contribution_status_id:name')
+                                          ->addWhere('id', '=', $contribution['id'])
+                                          ->execute()
+                                          ->first();
           $status = $status['contribution_status_id:name'];
         }
 
