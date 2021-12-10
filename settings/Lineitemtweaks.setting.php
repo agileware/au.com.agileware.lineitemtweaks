@@ -5,8 +5,8 @@
  * Settings declaration for Line Item Tweaks extension.
  */
 
-return array(
-  'lineitemtweaks_membership_label' => array(
+return [
+  'lineitemtweaks_membership_label' => [
     'group_name' => 'Line Item Tweaks',
     'group' => 'lineitemtweaks',
     'name' => 'lineitemtweaks_membership_label',
@@ -17,8 +17,8 @@ return array(
     'is_contact' => 0,
     'description' => 'Membership Line item Label',
     'help_text' => 'Label to use for Membership line items.  %1 - Membership ID, %2 - Type, %3 - Term start date, %4 - Term end date, %5 - Membership Organisation name, %6 - Member name',
-  ),
-  'lineitemtweaks_membership_label_lifetime' => array(
+  ],
+  'lineitemtweaks_membership_label_lifetime' => [
     'group_name' => 'Line Item Tweaks',
     'group' => 'lineitemtweaks',
     'name' => 'lineitemtweaks_membership_label_lifetime',
@@ -29,5 +29,5 @@ return array(
     'is_contact' => 0,
     'description' => 'Membership Line item Label for lifetime memberships',
     'help_text' => 'Label to use for (Lifetime) Membership line items.  %1 - Membership ID, %2 - Type, %3 - Term start date, %4 - skipped, %5 - Membership Organisation name, %6 - Member name',
-  ),
-);
+  ],
+];

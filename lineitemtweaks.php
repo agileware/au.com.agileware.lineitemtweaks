@@ -1,6 +1,7 @@
 <?php
 
 require_once 'lineitemtweaks.civix.php';
+
 use CRM_Lineitemtweaks_ExtensionUtil as E;
 
 /**
@@ -154,7 +155,7 @@ function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
 
 
       // If the line items are being created or line items have been previously created and the membership id is set then...
-      if ('create' == $op || ('edit' == $op ) && !empty($membership_id)) {
+      if ('create' == $op || ('edit' == $op) && !empty($membership_id)) {
         // This will catch when Webform creates the Line Items before creating the Contribution
         // And for back-end memberships, the Contribution will be created before the Line Items which makes more sense
         if (!empty($contribution)) {
@@ -162,7 +163,7 @@ function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
           // Webform may not set these variables, so do it now as this is used by _lineitemtweaks_fix_membership_lineitem
           if (empty($params['entity_table'])) {
             $params['entity_table'] = 'civicrm_membership';
-            $params['entity_id']    = $params['membership_id'];
+            $params['entity_id'] = $params['membership_id'];
           }
 
           _lineitemtweaks_fix_membership_lineitem($contribution, $params);
@@ -173,13 +174,12 @@ function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
           try {
             $financial_type_name = civicrm_api3('FinancialType', 'getvalue', [
               'return' => 'name',
-              'id'     => $params['financial_type_id'],
+              'id' => $params['financial_type_id'],
             ]);
             if ((empty($params['label']) || ($params['label'] == $financial_type_name)) && !empty($contribution['contribution_source'])) {
               $params['label'] = $contribution['contribution_source'];
             }
-          }
-          catch (CiviCRM_API3_Exception $e) {
+          } catch (CiviCRM_API3_Exception $e) {
           }
         }
       }
@@ -207,7 +207,7 @@ function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
 }
 
 function __lineitemtweaks_new_membership($id, $add = FALSE) {
-  static $new_membership = array();
+  static $new_membership = [];
   if ($add == TRUE) {
     $new_membership[$id] = TRUE;
   }
@@ -223,16 +223,21 @@ function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
   switch ($objectName) {
     case 'Contribution':
       if ('create' == $op) {
-        $line_items = civicrm_api3('LineItem', 'get', array(
+        $line_items = civicrm_api3('LineItem', 'get', [
           'contribution_id' => $objectRef->id,
-          'entity_table' => array('IN' => array('civicrm_contribution', 'civicrm_membership')),
+          'entity_table' => [
+            'IN' => [
+              'civicrm_contribution',
+              'civicrm_membership',
+            ],
+          ],
           'return' => 'id,contribution_id,entity_table,entity_id,qty',
-        ));
+        ]);
 
-        $contribution = array(
+        $contribution = [
           'id' => $objectId,
           'contribution_status_id' => $objectRef->contribution_status_id,
-        );
+        ];
 
         foreach ($line_items['values'] as &$item) {
           if (($item['entity_table'] == 'civicrm_membership') && !empty($item['entity_id'])) {
@@ -256,13 +261,19 @@ function lineitemtweaks_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 
 function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
   try {
-    $membership = civicrm_api3('Membership', 'getsingle', array('id' => $params['entity_id']));
+    $membership = civicrm_api3('Membership', 'getsingle', ['id' => $params['entity_id']]);
 
-    $membership_type = civicrm_api3('MembershipType', 'getsingle', array('id' => $membership['membership_type_id']));
+    $membership_type = civicrm_api3('MembershipType', 'getsingle', ['id' => $membership['membership_type_id']]);
 
-    $member_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership['contact_id'], 'return' => 'display_name'));
+    $member_name = civicrm_api3('Contact', 'getvalue', [
+      'id' => $membership['contact_id'],
+      'return' => 'display_name',
+    ]);
 
-    $org_name = civicrm_api3('Contact', 'getvalue', array('id' => $membership_type['member_of_contact_id'], 'return' => 'display_name'));
+    $org_name = civicrm_api3('Contact', 'getvalue', [
+      'id' => $membership_type['member_of_contact_id'],
+      'return' => 'display_name',
+    ]);
     $type = $membership_type['name'];
     $membershipToUse = $membership;
 
@@ -273,10 +284,10 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
 
         if (!empty($contribution['id'])) {
           $status = Civi\Api4\Contribution::get(FALSE)
-                                          ->addSelect('contribution_status_id:name')
-                                          ->addWhere('id', '=', $contribution['id'])
-                                          ->execute()
-                                          ->first();
+            ->addSelect('contribution_status_id:name')
+            ->addWhere('id', '=', $contribution['id'])
+            ->execute()
+            ->first();
           $status = $status['contribution_status_id:name'];
         }
 
@@ -307,16 +318,30 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
       $from = strftime('%m/%Y', strtotime($membershipToUse['log_start_date'] ?? $membershipToUse['start_date']));
       $to = strftime('%m/%Y', strtotime($membershipToUse['end_date']));
 
-      $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label'));
-      $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => $to, 5 => $org_name, 6 => $member_name));
+      $label = civicrm_api3('Setting', 'getvalue', ['name' => 'lineitemtweaks_membership_label']);
+      $params['label'] = E::ts($label, [
+        1 => $membership['id'],
+        2 => $type,
+        3 => $from,
+        4 => $to,
+        5 => $org_name,
+        6 => $member_name,
+      ]);
     }
     else {
       $from = strftime('%m/%Y', strtotime($membershipToUse['start_date']));
-      $label = civicrm_api3('Setting', 'getvalue', array('name' => 'lineitemtweaks_membership_label_lifetime'));
-      $params['label'] = E::ts($label, array(1 => $membership['id'], 2 => $type, 3 => $from, 4 => '', 5 => $org_name, 6 => $member_name));
+      $label = civicrm_api3('Setting', 'getvalue', ['name' => 'lineitemtweaks_membership_label_lifetime']);
+      $params['label'] = E::ts($label, [
+        1 => $membership['id'],
+        2 => $type,
+        3 => $from,
+        4 => '',
+        5 => $org_name,
+        6 => $member_name,
+      ]);
     }
   } catch (CiviCRM_API3_Exception $e) {
     CRM_Core_Error::debug_log_message('Could not find membership with id "' . $params['entity_id'] . '"');
-    CRM_Core_Error::backtrace(__FUNCTION__, true);
+    CRM_Core_Error::backtrace(__FUNCTION__, TRUE);
   }
 }
