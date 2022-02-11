@@ -155,7 +155,7 @@ function lineitemtweaks_civicrm_pre($op, $objectName, $id, &$params) {
 
 
       // If the line items are being created or line items have been previously created and the membership id is set then...
-      if ('create' == $op || ('edit' == $op) && !empty($membership_id)) {
+      if (('create' == $op || 'edit' == $op) && !empty($membership_id)) {
         // This will catch when Webform creates the Line Items before creating the Contribution
         // And for back-end memberships, the Contribution will be created before the Line Items which makes more sense
         if (!empty($contribution)) {
