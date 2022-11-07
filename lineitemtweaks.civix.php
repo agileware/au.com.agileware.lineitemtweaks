@@ -7,11 +7,8 @@
  * extension.
  */
 class CRM_Lineitemtweaks_ExtensionUtil {
-
   const SHORT_NAME = 'lineitemtweaks';
-
   const LONG_NAME = 'au.com.agileware.lineitemtweaks';
-
   const CLASS_PREFIX = 'CRM_Lineitemtweaks';
 
   /**
@@ -23,7 +20,6 @@ class CRM_Lineitemtweaks_ExtensionUtil {
    * @param string $text
    *   Canonical message text (generally en_US).
    * @param array $params
-   *
    * @return string
    *   Translated text.
    * @see ts
@@ -41,15 +37,13 @@ class CRM_Lineitemtweaks_ExtensionUtil {
    * @param string|NULL $file
    *   Ex: NULL.
    *   Ex: 'css/foo.css'.
-   *
    * @return string
    *   Ex: 'http://example.org/sites/default/ext/org.example.foo'.
    *   Ex: 'http://example.org/sites/default/ext/org.example.foo/css/foo.css'.
    */
   public static function url($file = NULL) {
     if ($file === NULL) {
-      return rtrim(CRM_Core_Resources::singleton()
-        ->getUrl(self::LONG_NAME), '/');
+      return rtrim(CRM_Core_Resources::singleton()->getUrl(self::LONG_NAME), '/');
     }
     return CRM_Core_Resources::singleton()->getUrl(self::LONG_NAME, $file);
   }
@@ -60,7 +54,6 @@ class CRM_Lineitemtweaks_ExtensionUtil {
    * @param string|NULL $file
    *   Ex: NULL.
    *   Ex: 'css/foo.css'.
-   *
    * @return string
    *   Ex: '/var/www/example.org/sites/default/ext/org.example.foo'.
    *   Ex: '/var/www/example.org/sites/default/ext/org.example.foo/css/foo.css'.
@@ -75,7 +68,6 @@ class CRM_Lineitemtweaks_ExtensionUtil {
    *
    * @param string $suffix
    *   Ex: 'Page_HelloWorld' or 'Page\\HelloWorld'.
-   *
    * @return string
    *   Ex: 'CRM_Foo_Page_HelloWorld'.
    */
@@ -86,6 +78,13 @@ class CRM_Lineitemtweaks_ExtensionUtil {
 }
 
 use CRM_Lineitemtweaks_ExtensionUtil as E;
+
+function _lineitemtweaks_civix_mixin_polyfill() {
+  if (!class_exists('CRM_Extension_MixInfo')) {
+    $polyfill = __DIR__ . '/mixin/polyfill.php';
+    (require $polyfill)(E::LONG_NAME, E::SHORT_NAME, E::path());
+  }
+}
 
 /**
  * (Delegated) Implements hook_civicrm_config().
@@ -99,9 +98,9 @@ function _lineitemtweaks_civix_civicrm_config(&$config = NULL) {
   }
   $configured = TRUE;
 
-  $template =& CRM_Core_Smarty::singleton();
+  $template = CRM_Core_Smarty::singleton();
 
-  $extRoot = dirname(__FILE__) . DIRECTORY_SEPARATOR;
+  $extRoot = __DIR__ . DIRECTORY_SEPARATOR;
   $extDir = $extRoot . 'templates';
 
   if (is_array($template->template_dir)) {
@@ -113,19 +112,7 @@ function _lineitemtweaks_civix_civicrm_config(&$config = NULL) {
 
   $include_path = $extRoot . PATH_SEPARATOR . get_include_path();
   set_include_path($include_path);
-}
-
-/**
- * (Delegated) Implements hook_civicrm_xmlMenu().
- *
- * @param $files array(string)
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_xmlMenu
- */
-function _lineitemtweaks_civix_civicrm_xmlMenu(&$files) {
-  foreach (_lineitemtweaks_civix_glob(__DIR__ . '/xml/Menu/*.xml') as $file) {
-    $files[] = $file;
-  }
+  _lineitemtweaks_civix_mixin_polyfill();
 }
 
 /**
@@ -138,6 +125,7 @@ function _lineitemtweaks_civix_civicrm_install() {
   if ($upgrader = _lineitemtweaks_civix_upgrader()) {
     $upgrader->onInstall();
   }
+  _lineitemtweaks_civix_mixin_polyfill();
 }
 
 /**
@@ -178,6 +166,7 @@ function _lineitemtweaks_civix_civicrm_enable() {
       $upgrader->onEnable();
     }
   }
+  _lineitemtweaks_civix_mixin_polyfill();
 }
 
 /**
@@ -198,14 +187,12 @@ function _lineitemtweaks_civix_civicrm_disable() {
 /**
  * (Delegated) Implements hook_civicrm_upgrade().
  *
- * @param $op string, the type of operation being performed; 'check' or
- *   'enqueue'
- * @param $queue CRM_Queue_Queue, (for 'enqueue') the modifiable list of
- *   pending up upgrade tasks
+ * @param $op string, the type of operation being performed; 'check' or 'enqueue'
+ * @param $queue CRM_Queue_Queue, (for 'enqueue') the modifiable list of pending up upgrade tasks
  *
  * @return mixed
- *   based on op. for 'check', returns array(boolean) (TRUE if upgrades are
- *   pending) for 'enqueue', returns void
+ *   based on op. for 'check', returns array(boolean) (TRUE if upgrades are pending)
+ *   for 'enqueue', returns void
  *
  * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_upgrade
  */
@@ -228,142 +215,10 @@ function _lineitemtweaks_civix_upgrader() {
 }
 
 /**
- * Search directory tree for files which match a glob pattern.
- *
- * Note: Dot-directories (like "..", ".git", or ".svn") will be ignored.
- * Note: Delegate to CRM_Utils_File::findFiles(), this function kept only
- * for backward compatibility of extension code that uses it.
- *
- * @param string $dir base dir
- * @param string $pattern , glob pattern, eg "*.txt"
- *
- * @return array
- */
-function _lineitemtweaks_civix_find_files($dir, $pattern) {
-  return CRM_Utils_File::findFiles($dir, $pattern);
-}
-
-/**
- * (Delegated) Implements hook_civicrm_managed().
- *
- * Find any *.mgd.php files, merge their content, and return.
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_managed
- */
-function _lineitemtweaks_civix_civicrm_managed(&$entities) {
-  $mgdFiles = _lineitemtweaks_civix_find_files(__DIR__, '*.mgd.php');
-  sort($mgdFiles);
-  foreach ($mgdFiles as $file) {
-    $es = include $file;
-    foreach ($es as $e) {
-      if (empty($e['module'])) {
-        $e['module'] = E::LONG_NAME;
-      }
-      if (empty($e['params']['version'])) {
-        $e['params']['version'] = '3';
-      }
-      $entities[] = $e;
-    }
-  }
-}
-
-/**
- * (Delegated) Implements hook_civicrm_caseTypes().
- *
- * Find any and return any files matching "xml/case/*.xml"
- *
- * Note: This hook only runs in CiviCRM 4.4+.
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_caseTypes
- */
-function _lineitemtweaks_civix_civicrm_caseTypes(&$caseTypes) {
-  if (!is_dir(__DIR__ . '/xml/case')) {
-    return;
-  }
-
-  foreach (_lineitemtweaks_civix_glob(__DIR__ . '/xml/case/*.xml') as $file) {
-    $name = preg_replace('/\.xml$/', '', basename($file));
-    if ($name != CRM_Case_XMLProcessor::mungeCaseType($name)) {
-      $errorMessage = sprintf("Case-type file name is malformed (%s vs %s)", $name, CRM_Case_XMLProcessor::mungeCaseType($name));
-      throw new CRM_Core_Exception($errorMessage);
-    }
-    $caseTypes[$name] = [
-      'module' => E::LONG_NAME,
-      'name' => $name,
-      'file' => $file,
-    ];
-  }
-}
-
-/**
- * (Delegated) Implements hook_civicrm_angularModules().
- *
- * Find any and return any files matching "ang/*.ang.php"
- *
- * Note: This hook only runs in CiviCRM 4.5+.
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_angularModules
- */
-function _lineitemtweaks_civix_civicrm_angularModules(&$angularModules) {
-  if (!is_dir(__DIR__ . '/ang')) {
-    return;
-  }
-
-  $files = _lineitemtweaks_civix_glob(__DIR__ . '/ang/*.ang.php');
-  foreach ($files as $file) {
-    $name = preg_replace(':\.ang\.php$:', '', basename($file));
-    $module = include $file;
-    if (empty($module['ext'])) {
-      $module['ext'] = E::LONG_NAME;
-    }
-    $angularModules[$name] = $module;
-  }
-}
-
-/**
- * (Delegated) Implements hook_civicrm_themes().
- *
- * Find any and return any files matching "*.theme.php"
- */
-function _lineitemtweaks_civix_civicrm_themes(&$themes) {
-  $files = _lineitemtweaks_civix_glob(__DIR__ . '/*.theme.php');
-  foreach ($files as $file) {
-    $themeMeta = include $file;
-    if (empty($themeMeta['name'])) {
-      $themeMeta['name'] = preg_replace(':\.theme\.php$:', '', basename($file));
-    }
-    if (empty($themeMeta['ext'])) {
-      $themeMeta['ext'] = E::LONG_NAME;
-    }
-    $themes[$themeMeta['name']] = $themeMeta;
-  }
-}
-
-/**
- * Glob wrapper which is guaranteed to return an array.
- *
- * The documentation for glob() says, "On some systems it is impossible to
- * distinguish between empty match and an error." Anecdotally, the return
- * result for an empty match is sometimes array() and sometimes FALSE.
- * This wrapper provides consistency.
- *
- * @link http://php.net/glob
- *
- * @param string $pattern
- *
- * @return array
- */
-function _lineitemtweaks_civix_glob($pattern) {
-  $result = glob($pattern);
-  return is_array($result) ? $result : [];
-}
-
-/**
  * Inserts a navigation menu item at a given place in the hierarchy.
  *
  * @param array $menu - menu hierarchy
- * @param string $path - path to parent of this item, e.g.
- *   'my_extension/submenu'
+ * @param string $path - path to parent of this item, e.g. 'my_extension/submenu'
  *    'Mailing', or 'Administer/System Settings'
  * @param array $item - the item to insert (parent/child attributes will be
  *    filled for you)
@@ -375,8 +230,8 @@ function _lineitemtweaks_civix_insert_navigation_menu(&$menu, $path, $item) {
   if (empty($path)) {
     $menu[] = [
       'attributes' => array_merge([
-        'label' => CRM_Utils_Array::value('name', $item),
-        'active' => 1,
+        'label'      => CRM_Utils_Array::value('name', $item),
+        'active'     => 1,
       ], $item),
     ];
     return TRUE;
@@ -413,7 +268,7 @@ function _lineitemtweaks_civix_navigationMenu(&$nodes) {
  */
 function _lineitemtweaks_civix_fixNavigationMenu(&$nodes) {
   $maxNavID = 1;
-  array_walk_recursive($nodes, function ($item, $key) use (&$maxNavID) {
+  array_walk_recursive($nodes, function($item, $key) use (&$maxNavID) {
     if ($key === 'navID') {
       $maxNavID = max($maxNavID, $item);
     }
@@ -438,18 +293,6 @@ function _lineitemtweaks_civix_fixNavigationMenuItems(&$nodes, &$maxNavID, $pare
     if (isset($nodes[$origKey]['child']) && is_array($nodes[$origKey]['child'])) {
       _lineitemtweaks_civix_fixNavigationMenuItems($nodes[$origKey]['child'], $maxNavID, $nodes[$origKey]['attributes']['navID']);
     }
-  }
-}
-
-/**
- * (Delegated) Implements hook_civicrm_alterSettingsFolders().
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_alterSettingsFolders
- */
-function _lineitemtweaks_civix_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
-  $settingsDir = __DIR__ . DIRECTORY_SEPARATOR . 'settings';
-  if (!in_array($settingsDir, $metaDataFolders) && is_dir($settingsDir)) {
-    $metaDataFolders[] = $settingsDir;
   }
 }
 
