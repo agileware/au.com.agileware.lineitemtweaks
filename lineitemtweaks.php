@@ -23,48 +23,12 @@ function lineitemtweaks_civicrm_install() {
 }
 
 /**
- * Implements hook_civicrm_postInstall().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
- */
-function lineitemtweaks_civicrm_postInstall() {
-  _lineitemtweaks_civix_civicrm_postInstall();
-}
-
-/**
- * Implements hook_civicrm_uninstall().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
- */
-function lineitemtweaks_civicrm_uninstall() {
-  _lineitemtweaks_civix_civicrm_uninstall();
-}
-
-/**
  * Implements hook_civicrm_enable().
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_enable
  */
 function lineitemtweaks_civicrm_enable() {
   _lineitemtweaks_civix_civicrm_enable();
-}
-
-/**
- * Implements hook_civicrm_disable().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_disable
- */
-function lineitemtweaks_civicrm_disable() {
-  _lineitemtweaks_civix_civicrm_disable();
-}
-
-/**
- * Implements hook_civicrm_upgrade().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_upgrade
- */
-function lineitemtweaks_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
-  return _lineitemtweaks_civix_civicrm_upgrade($op, $queue);
 }
 
 /**
@@ -287,13 +251,4 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
     CRM_Core_Error::debug_log_message('Could not find membership with id "' . $params['entity_id'] . '"');
     CRM_Core_Error::backtrace(__FUNCTION__, TRUE);
   }
-}
-
-/**
- * Implements hook_civicrm_entityTypes().
- *
- * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_entityTypes
- */
-function lineitemtweaks_civicrm_entityTypes(&$entityTypes) {
-  _lineitemtweaks_civix_civicrm_entityTypes($entityTypes);
 }
