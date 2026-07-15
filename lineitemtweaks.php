@@ -204,7 +204,7 @@ function _lineitemtweaks_fix_membership_lineitem($contribution, &$params) {
             $membership['id'],
             NULL,
             NULL,
-            $params['qty'] ?? 1
+            $params['membership_num_terms'] ?? 1
           );
         }
         else {
